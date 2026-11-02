@@ -324,6 +324,386 @@
         "trace": []
       },
       "updatedAt": "2026-09-05T13:06:09.038Z"
+    },
+    "pa6-happy-1793638894529-2": {
+      "requestHash": "sha256:17a1287d5745d627e516b761a480f5d781f15b27513412a37bc195f1097fd2ba",
+      "state": "completed",
+      "httpStatus": 200,
+      "response": {
+        "orderId": "WEB-PA6-1793638894529-1",
+        "status": "completed",
+        "trace": [
+          {
+            "step": "payment",
+            "status": "success",
+            "startedAt": "2026-11-02T17:01:34.558Z",
+            "finishedAt": "2026-11-02T17:01:34.609Z",
+            "durationMs": 51
+          },
+          {
+            "step": "inventory",
+            "status": "success",
+            "startedAt": "2026-11-02T17:01:34.609Z",
+            "finishedAt": "2026-11-02T17:01:34.614Z",
+            "durationMs": 5
+          },
+          {
+            "step": "shipping",
+            "status": "success",
+            "startedAt": "2026-11-02T17:01:34.614Z",
+            "finishedAt": "2026-11-02T17:01:34.618Z",
+            "durationMs": 4
+          },
+          {
+            "step": "notification",
+            "status": "success",
+            "startedAt": "2026-11-02T17:01:34.618Z",
+            "finishedAt": "2026-11-02T17:01:34.621Z",
+            "durationMs": 3
+          }
+        ]
+      },
+      "updatedAt": "2026-11-02T17:01:34.622Z"
+    },
+    "pa6-pay-fail-1793638894811-4": {
+      "requestHash": "sha256:a0eb5a26a4ec6768391f27f71b0f80ef52976e2808187a361a69e4dbebd55897",
+      "state": "failed",
+      "httpStatus": 422,
+      "response": {
+        "orderId": "WEB-PA6-1793638894811-3",
+        "status": "failed",
+        "code": "payment_declined",
+        "message": "Saga stopped: payment_declined",
+        "trace": [
+          {
+            "step": "payment",
+            "status": "failed",
+            "startedAt": "2026-11-02T17:01:34.814Z",
+            "finishedAt": "2026-11-02T17:01:34.818Z",
+            "durationMs": 4
+          }
+        ]
+      },
+      "updatedAt": "2026-11-02T17:01:34.820Z"
+    },
+    "pa6-inv-fail-1793638895023-6": {
+      "requestHash": "sha256:06c2dd52446bf21e1e2540be92c01a99b541987c2f95b138eeca86fa2e12f08a",
+      "state": "compensated",
+      "httpStatus": 422,
+      "response": {
+        "orderId": "WEB-PA6-1793638895023-5",
+        "status": "compensated",
+        "code": "inventory_unavailable",
+        "message": "Saga stopped: inventory_unavailable",
+        "trace": [
+          {
+            "step": "payment",
+            "status": "success",
+            "startedAt": "2026-11-02T17:01:35.028Z",
+            "finishedAt": "2026-11-02T17:01:35.033Z",
+            "durationMs": 5
+          },
+          {
+            "step": "inventory",
+            "status": "failed",
+            "startedAt": "2026-11-02T17:01:35.033Z",
+            "finishedAt": "2026-11-02T17:01:35.037Z",
+            "durationMs": 4
+          },
+          {
+            "step": "payment_refund",
+            "status": "success",
+            "startedAt": "2026-11-02T17:01:35.037Z",
+            "finishedAt": "2026-11-02T17:01:35.042Z",
+            "durationMs": 5
+          }
+        ]
+      },
+      "updatedAt": "2026-11-02T17:01:35.044Z"
+    },
+    "pa6-ship-timeout-1793638895243-8": {
+      "requestHash": "sha256:ae5409ad78d1c87651d8a4feaf6479ef5e7fb94a38d16b4560867847017ef421",
+      "state": "compensated",
+      "httpStatus": 504,
+      "response": {
+        "orderId": "WEB-PA6-1793638895243-7",
+        "status": "compensated",
+        "code": "timeout",
+        "message": "Saga stopped: timeout",
+        "trace": [
+          {
+            "step": "payment",
+            "status": "success",
+            "startedAt": "2026-11-02T17:01:35.249Z",
+            "finishedAt": "2026-11-02T17:01:35.255Z",
+            "durationMs": 6
+          },
+          {
+            "step": "inventory",
+            "status": "success",
+            "startedAt": "2026-11-02T17:01:35.255Z",
+            "finishedAt": "2026-11-02T17:01:35.259Z",
+            "durationMs": 4
+          },
+          {
+            "step": "shipping",
+            "status": "timeout",
+            "startedAt": "2026-11-02T17:01:35.259Z",
+            "finishedAt": "2026-11-02T17:01:37.768Z",
+            "durationMs": 2509
+          },
+          {
+            "step": "inventory_release",
+            "status": "success",
+            "startedAt": "2026-11-02T17:01:37.768Z",
+            "finishedAt": "2026-11-02T17:01:37.776Z",
+            "durationMs": 8
+          },
+          {
+            "step": "payment_refund",
+            "status": "success",
+            "startedAt": "2026-11-02T17:01:37.776Z",
+            "finishedAt": "2026-11-02T17:01:37.781Z",
+            "durationMs": 5
+          }
+        ]
+      },
+      "updatedAt": "2026-11-02T17:01:37.784Z"
+    },
+    "pa6-comp-fail-1793638901602-10": {
+      "requestHash": "sha256:766157bb16a1d4d9545574223d7e80e4e4ebe1280c0158445210fd173d7cc171",
+      "state": "failed",
+      "httpStatus": 422,
+      "response": {
+        "orderId": "WEB-PA6-1793638901602-9",
+        "status": "failed",
+        "code": "compensation_failed",
+        "message": "Saga stopped: compensation_failed",
+        "trace": [
+          {
+            "step": "payment",
+            "status": "success",
+            "startedAt": "2026-11-02T17:01:41.605Z",
+            "finishedAt": "2026-11-02T17:01:41.609Z",
+            "durationMs": 4
+          },
+          {
+            "step": "inventory",
+            "status": "failed",
+            "startedAt": "2026-11-02T17:01:41.609Z",
+            "finishedAt": "2026-11-02T17:01:41.612Z",
+            "durationMs": 3
+          },
+          {
+            "step": "payment_refund",
+            "status": "failed",
+            "startedAt": "2026-11-02T17:01:41.612Z",
+            "finishedAt": "2026-11-02T17:01:41.614Z",
+            "durationMs": 2
+          }
+        ]
+      },
+      "updatedAt": "2026-11-02T17:01:41.616Z"
+    },
+    "pa6-replay-1793638901797-12": {
+      "requestHash": "sha256:a471a8ac5ccd70539f9fa271c0df0ba9af4f10e7c1259f8cdbcb7b31a21cc78e",
+      "state": "completed",
+      "httpStatus": 200,
+      "response": {
+        "orderId": "WEB-PA6-1793638901797-11",
+        "status": "completed",
+        "trace": [
+          {
+            "step": "payment",
+            "status": "success",
+            "startedAt": "2026-11-02T17:01:41.802Z",
+            "finishedAt": "2026-11-02T17:01:41.806Z",
+            "durationMs": 4
+          },
+          {
+            "step": "inventory",
+            "status": "success",
+            "startedAt": "2026-11-02T17:01:41.806Z",
+            "finishedAt": "2026-11-02T17:01:41.809Z",
+            "durationMs": 3
+          },
+          {
+            "step": "shipping",
+            "status": "success",
+            "startedAt": "2026-11-02T17:01:41.809Z",
+            "finishedAt": "2026-11-02T17:01:41.813Z",
+            "durationMs": 4
+          },
+          {
+            "step": "notification",
+            "status": "success",
+            "startedAt": "2026-11-02T17:01:41.813Z",
+            "finishedAt": "2026-11-02T17:01:41.818Z",
+            "durationMs": 5
+          }
+        ]
+      },
+      "updatedAt": "2026-11-02T17:01:41.820Z"
+    },
+    "pa6-mismatch-1793638902010-14": {
+      "requestHash": "sha256:af8e24172975e84055d601d5426d8b6e9cb52af614d6d2d7c78b3e0228a11ede",
+      "state": "completed",
+      "httpStatus": 200,
+      "response": {
+        "orderId": "WEB-PA6-1793638902010-13",
+        "status": "completed",
+        "trace": [
+          {
+            "step": "payment",
+            "status": "success",
+            "startedAt": "2026-11-02T17:01:42.016Z",
+            "finishedAt": "2026-11-02T17:01:42.021Z",
+            "durationMs": 5
+          },
+          {
+            "step": "inventory",
+            "status": "success",
+            "startedAt": "2026-11-02T17:01:42.021Z",
+            "finishedAt": "2026-11-02T17:01:42.024Z",
+            "durationMs": 3
+          },
+          {
+            "step": "shipping",
+            "status": "success",
+            "startedAt": "2026-11-02T17:01:42.024Z",
+            "finishedAt": "2026-11-02T17:01:42.027Z",
+            "durationMs": 3
+          },
+          {
+            "step": "notification",
+            "status": "success",
+            "startedAt": "2026-11-02T17:01:42.027Z",
+            "finishedAt": "2026-11-02T17:01:42.030Z",
+            "durationMs": 3
+          }
+        ]
+      },
+      "updatedAt": "2026-11-02T17:01:42.033Z"
+    },
+    "pa6-in-flight-1793638902225-16": {
+      "requestHash": "sha256:7a79073becf82d656ad02e06c2350e997fdd5ac8fa3a0cd68e430400fe20535a",
+      "state": "completed",
+      "httpStatus": 200,
+      "response": {
+        "orderId": "WEB-PA6-1793638902225-15",
+        "status": "completed",
+        "trace": [
+          {
+            "step": "payment",
+            "status": "success",
+            "startedAt": "2026-11-02T17:01:42.230Z",
+            "finishedAt": "2026-11-02T17:01:42.235Z",
+            "durationMs": 5
+          },
+          {
+            "step": "inventory",
+            "status": "success",
+            "startedAt": "2026-11-02T17:01:42.235Z",
+            "finishedAt": "2026-11-02T17:01:42.238Z",
+            "durationMs": 3
+          },
+          {
+            "step": "shipping",
+            "status": "success",
+            "startedAt": "2026-11-02T17:01:42.238Z",
+            "finishedAt": "2026-11-02T17:01:43.750Z",
+            "durationMs": 1512
+          },
+          {
+            "step": "notification",
+            "status": "success",
+            "startedAt": "2026-11-02T17:01:43.750Z",
+            "finishedAt": "2026-11-02T17:01:43.756Z",
+            "durationMs": 6
+          }
+        ]
+      },
+      "updatedAt": "2026-11-02T17:01:43.759Z"
+    },
+    "pa6-stores-1793638903946-18": {
+      "requestHash": "sha256:891179c432e3493cbd73c3df769efa2ba0e304ad1aec0a30770e7109c7b47af8",
+      "state": "completed",
+      "httpStatus": 200,
+      "response": {
+        "orderId": "WEB-PA6-1793638903946-17",
+        "status": "completed",
+        "trace": [
+          {
+            "step": "payment",
+            "status": "success",
+            "startedAt": "2026-11-02T17:01:43.953Z",
+            "finishedAt": "2026-11-02T17:01:43.958Z",
+            "durationMs": 5
+          },
+          {
+            "step": "inventory",
+            "status": "success",
+            "startedAt": "2026-11-02T17:01:43.958Z",
+            "finishedAt": "2026-11-02T17:01:43.961Z",
+            "durationMs": 3
+          },
+          {
+            "step": "shipping",
+            "status": "success",
+            "startedAt": "2026-11-02T17:01:43.961Z",
+            "finishedAt": "2026-11-02T17:01:43.964Z",
+            "durationMs": 3
+          },
+          {
+            "step": "notification",
+            "status": "success",
+            "startedAt": "2026-11-02T17:01:43.964Z",
+            "finishedAt": "2026-11-02T17:01:43.967Z",
+            "durationMs": 3
+          }
+        ]
+      },
+      "updatedAt": "2026-11-02T17:01:43.971Z"
+    },
+    "pa6-restart-1793638904154-20": {
+      "requestHash": "sha256:1b0f50fbfb22a3ebec4d32b12e48381ea47ecda50ee1c9e237f50ef8f4e306cd",
+      "state": "completed",
+      "httpStatus": 200,
+      "response": {
+        "orderId": "WEB-PA6-1793638904154-19",
+        "status": "completed",
+        "trace": [
+          {
+            "step": "payment",
+            "status": "success",
+            "startedAt": "2026-11-02T17:01:44.162Z",
+            "finishedAt": "2026-11-02T17:01:44.167Z",
+            "durationMs": 5
+          },
+          {
+            "step": "inventory",
+            "status": "success",
+            "startedAt": "2026-11-02T17:01:44.167Z",
+            "finishedAt": "2026-11-02T17:01:44.170Z",
+            "durationMs": 3
+          },
+          {
+            "step": "shipping",
+            "status": "success",
+            "startedAt": "2026-11-02T17:01:44.170Z",
+            "finishedAt": "2026-11-02T17:01:44.173Z",
+            "durationMs": 3
+          },
+          {
+            "step": "notification",
+            "status": "success",
+            "startedAt": "2026-11-02T17:01:44.173Z",
+            "finishedAt": "2026-11-02T17:01:44.176Z",
+            "durationMs": 3
+          }
+        ]
+      },
+      "updatedAt": "2026-11-02T17:01:44.179Z"
     }
   }
 }
