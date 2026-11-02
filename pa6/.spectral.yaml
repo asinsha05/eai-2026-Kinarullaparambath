@@ -9,8 +9,8 @@
 #   3. error-response schemas    (4xx/5xx bodies are contractual, not prose)
 #   4. no unbounded arrays       (every array declares maxItems)
 #
-# Run it exactly as:
-#   docker run --rm -v $PWD:/w stoplight/spectral lint /w/pa6/openapi.yaml --ruleset /w/pa6/.spectral.yaml
+# Run it exactly as graded, from pa6/, in any shell:
+#   docker compose run --rm spectral
 extends:
   - spectral:oas
 

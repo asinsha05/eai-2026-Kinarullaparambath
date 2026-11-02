@@ -1,6 +1,7 @@
 /**
  * PA6 mock notification service — ported from the practice-03-orchestration JS lab.
- * Behavior is unchanged: same routes, same fail-mode semantics, same log shape.
+ * Same routes and fail-mode semantics. One change for 2026: each log entry
+ * records the recipient it was asked to notify.
  */
 import express, { type Request, type Response } from "express";
 
@@ -18,6 +19,7 @@ interface LogEntry {
   orderId: string | null;
   correlationId: string | null;
   outcome: string;
+  recipient: string | null;
 }
 
 interface Config {
@@ -45,6 +47,7 @@ function record(action: string, req: Request, body: any, outcome: string): void 
     orderId: body?.orderId || req.header("x-order-id") || null,
     correlationId: req.header("x-correlation-id") || null,
     outcome,
+    recipient: typeof body?.recipient === "string" ? body.recipient : null,
   });
 }
 

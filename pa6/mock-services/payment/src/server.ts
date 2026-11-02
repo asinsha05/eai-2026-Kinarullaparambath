@@ -1,6 +1,9 @@
 /**
  * PA6 mock payment service — ported from the practice-03-orchestration JS lab.
- * Behavior is unchanged: same routes, same fail-mode semantics, same log shape.
+ * Same routes and fail-mode semantics. One change for 2026: `amount` is a
+ * decimal string with two fraction digits ("49.50"), never a JSON number, as
+ * everywhere else in this course, and each log entry records the amount it
+ * received.
  */
 import express, { type Request, type Response } from "express";
 
@@ -18,6 +21,7 @@ interface LogEntry {
   orderId: string | null;
   correlationId: string | null;
   outcome: string;
+  amount: string | null;
 }
 
 interface Config {
@@ -47,6 +51,7 @@ function record(action: string, req: Request, body: any, outcome: string): void 
     orderId: body?.orderId || req.header("x-order-id") || null,
     correlationId: req.header("x-correlation-id") || null,
     outcome,
+    amount: typeof body?.amount === "string" ? body.amount : null,
   });
 }
 
@@ -56,9 +61,12 @@ app.get("/health", (_req: Request, res: Response) => {
 
 app.post("/payment/authorize", (req: Request, res: Response) => {
   const { orderId, amount } = req.body || {};
-  if (!orderId || typeof amount !== "number") {
+  if (!orderId || typeof amount !== "string" || !/^[0-9]+\.[0-9]{2}$/.test(amount)) {
     record("authorize", req, req.body, "validation_error");
-    res.status(400).json({ code: "validation_error", message: "orderId and numeric amount are required" });
+    res.status(400).json({
+      code: "validation_error",
+      message: 'orderId and amount are required; amount is a decimal string with two fraction digits, e.g. "49.50"',
+    });
     return;
   }
 

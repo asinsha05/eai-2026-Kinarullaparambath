@@ -17,8 +17,8 @@
 #   - schema-property-camel-case     (order_id, not orderId)
 #   - no-unbounded-arrays            (items[] has no maxItems)
 #
-# Verify with:
-#   docker run --rm -v $PWD:/w stoplight/spectral lint /w/pa6/examples/openapi.bad.yaml --ruleset /w/pa6/.spectral.yaml
+# Verify with, from pa6/:
+#   docker compose run --rm spectral lint examples/openapi.bad.yaml --ruleset .spectral.yaml
 # It must exit non-zero.
 openapi: 3.0.3
 info:

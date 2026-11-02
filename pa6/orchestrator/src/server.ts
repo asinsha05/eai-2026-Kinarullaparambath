@@ -1,9 +1,10 @@
 /**
  * PA6 orchestrator scaffold — ported from the practice-03-orchestration JS lab.
  *
- * This scaffold is intentionally incomplete. `GET /health`, request validation,
- * the Idempotency-Key contract shell, and restart-safe file persistence are
- * already wired up. What is NOT implemented is the actual saga:
+ * This scaffold is intentionally incomplete. `GET /health`, request validation
+ * against the canonical order schema, the Idempotency-Key contract shell, and
+ * restart-safe file persistence are already wired up. What is NOT implemented
+ * is the actual saga:
  *
  *   1) payment authorize
  *   2) inventory reserve
@@ -18,6 +19,9 @@ import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
 import express, { type Request, type Response } from "express";
+import Ajv from "ajv";
+import addFormats from "ajv-formats";
+import type { CanonicalOrder } from "./canonical-order";
 
 const app = express();
 app.use(express.json());
@@ -125,23 +129,28 @@ function payloadHash(payload: unknown): string {
   return `sha256:${hash}`;
 }
 
-function validateCheckoutPayload(payload: any): string | null {
-  if (!payload || typeof payload !== "object") {
-    return "Request body must be a JSON object";
+// The request body is a canonical order. docker-compose.yml mounts the
+// course's canonical/ folder read-only at /canonical, so the orchestrator
+// validates against the very file PA4's output was validated against.
+const CANONICAL_SCHEMA_PATH = "/canonical/order.schema.json";
+
+if (!fs.existsSync(CANONICAL_SCHEMA_PATH)) {
+  throw new Error(
+    `${CANONICAL_SCHEMA_PATH} not found. docker-compose.yml mounts ../canonical ` +
+      "from your repository root: copy canonical/ from eai-2026 next to pa6/ " +
+      '(root README, "Starting an assignment"), then run docker compose up again.',
+  );
+}
+
+const ajv = new Ajv({ allErrors: true });
+addFormats(ajv);
+const validateCanonicalOrder = ajv.compile(JSON.parse(fs.readFileSync(CANONICAL_SCHEMA_PATH, "utf8")));
+
+function validateCheckoutPayload(payload: unknown): string | null {
+  if (validateCanonicalOrder(payload)) {
+    return null;
   }
-  if (typeof payload.orderId !== "string" || payload.orderId.trim() === "") {
-    return 'Field "orderId" is required and must be a non-empty string';
-  }
-  if (!Array.isArray(payload.items) || payload.items.length === 0) {
-    return 'Field "items" is required and must be a non-empty array';
-  }
-  if (typeof payload.amount !== "number") {
-    return 'Field "amount" is required and must be numeric';
-  }
-  if (typeof payload.recipient !== "string" || payload.recipient.trim() === "") {
-    return 'Field "recipient" is required and must be a non-empty string';
-  }
-  return null;
+  return `Request body is not a canonical order: ${ajv.errorsText(validateCanonicalOrder.errors, { dataVar: "body" })}`;
 }
 
 function bootstrapStores(): void {
@@ -208,7 +217,8 @@ app.post("/checkout", (req: Request, res: Response) => {
     return;
   }
 
-  const orderId: string = req.body.orderId;
+  const order = req.body as CanonicalOrder;
+  const orderId = order.orderId;
   idempotencyStore.records[idempotencyKey] = {
     requestHash,
     state: "in_progress",
@@ -222,14 +232,22 @@ app.post("/checkout", (req: Request, res: Response) => {
   writeJsonFile(IDEMPOTENCY_STORE_PATH, idempotencyStore);
 
   // --------------------------------------------------------------------------
-  // TODO (student): Implement full orchestration flow:
-  //   1) payment authorize
-  //   2) inventory reserve
-  //   3) shipping create
-  //   4) notification send
+  // TODO (student): Implement full orchestration flow. README.md §4 has the
+  // exact request bodies, trace step names and the outcome table.
+  //   1) payment authorize   { orderId, amount }
+  //   2) inventory reserve   { orderId, items }
+  //   3) shipping create     { orderId }
+  //   4) notification send   { orderId, recipient }
   // with strict sequencing, trace recording, timeout handling, compensation
   // (in reverse order of the steps that actually completed), idempotent
   // replay policy, and restart-safe persistence updates.
+  //
+  // The canonical order carries neither an amount nor a recipient:
+  //   - amount    = the sum of unitPrice × quantity over order.items, sent as
+  //                 a decimal string with two fraction digits ("49.50").
+  //                 unitPrice is already a string: add up whole cents as
+  //                 integers, then format once. Never go through a float.
+  //   - recipient = order.customer.email
   //
   // config.paymentUrl / config.inventoryUrl / config.shippingUrl /
   // config.notificationUrl / config.requestTimeoutMs are already loaded from
