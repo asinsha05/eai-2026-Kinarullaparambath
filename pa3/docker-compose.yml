@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   rabbitmq:
     image: rabbitmq:3.12-management
@@ -20,7 +18,7 @@ services:
     build: ./starter/order-api
     container_name: pa3-order-api
     ports:
-      - "8080:8080"
+      - "8083:8080"
     environment:
       RABBITMQ_HOST: rabbitmq
     depends_on:

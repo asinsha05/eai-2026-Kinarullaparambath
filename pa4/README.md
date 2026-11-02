@@ -71,8 +71,9 @@ API, not this field; a public test checks that too.
 ### `mock-pricing/` — the pricing API (given, not a TODO)
 
 `GET http://localhost:4100/pricing/:productId`, authenticated with an
-`X-API-Key` header (see `docker-compose.yml` for the key — discovering it
-there, not being told it here, is the point). Returns `200` with
+`X-API-Key` header — the key is set in `docker-compose.yml`, and
+`starter/src/transform.ts` already exports it as `DEFAULT_PRICING_API_KEY`.
+Returns `200` with
 `{ productId, unitPrice, currency, taxRate, productName }`, `401` on a
 missing/wrong key, `404` on an unknown product id. `GET /pricing` returns
 the full catalog. See `mock-pricing/server.js` for the (also given) admin
@@ -102,9 +103,8 @@ Each function must:
 
 1. Read and parse its own source format (JSON, JSON, or CP1257 XML).
 2. Normalize each line item's product id to the pricing API's `PROD-XXX`
-   format (`../canonical/order.schema.json` via `README`'s table below), call
-   the API, and use its price, currency and tax rate — never a number you
-   typed into `transform.ts` yourself.
+   format (see the table below), call the API, and use its price, currency
+   and tax rate — never a number you typed into `transform.ts` yourself.
 3. Map everything onto `CanonicalOrder`, dropping the source's payment
    details entirely.
 4. Return `{ order, warnings }` rather than throwing, even when a product id
@@ -132,6 +132,12 @@ Each function must:
 ---
 
 ## Running it
+
+First, copy **two** folders into the root of your own repository: `pa4/`,
+and `canonical/`, which sits next to it (see
+[starting an assignment](../README.md#starting-an-assignment)). The tests
+read `../canonical/order.schema.json` from `pa4/` — without it, every schema
+test fails before it ever reaches your code.
 
 ```bash
 cd pa4
@@ -169,8 +175,8 @@ When you are done for the session: `docker compose down` from `pa4/`.
 
 ## Rules
 
-You may add `fast-xml-parser` is already in `starter/package.json` — you do
-not need another XML or CSV dependency. You may of course read
+`fast-xml-parser` is already in `starter/package.json` — you do not need
+another XML or CSV dependency. You may of course read
 documentation, and you may use AI tools — but see
 [SYLLABUS.md](../SYLLABUS.md) §12: you have to be able to defend every line
 in November, on your own code, with a fault planted in it.
@@ -200,18 +206,51 @@ a pricing API that returns `500`, and a B2B input with an element none of
 this README described. If your implementation is correct rather than tuned
 to the fixtures, you will not notice they exist.
 
-## Where your work goes
+---
 
-In **your** repository (`eai-2026-<surname>`), not this one:
+## Your ADR
 
-```
+`docs/adr-003.md`, four sections, one page. **It is 30% of this
+assignment's mark.** The template has the prompts; the short version of
+what it is asking:
+
+> You mapped three unrelated formats onto a canonical model you do not own,
+> enriched them from a service that can fail, and removed data that must
+> not travel. Where did each of those bite you — and what would you build
+> differently if this canonical model had to outlive this course?
+
+Write it after the code, while the annoyance is still fresh.
+
+---
+
+## Submitting
+
+Your work goes in **your** repository, not this one:
+
+```text
 eai-2026-<surname>/
+  canonical/          unchanged, as given — the tests read it
   pa4/
-    src/ …                your implementation
-    docs/adr-003.md       required — a missing ADR fails a public test
+    data/             unchanged, as given
+    mock-pricing/     unchanged, as given
+    starter/          your implementation, in src/transform.ts
+    tests/public/     unchanged, as given
+    docs/adr-003.md
+    docker-compose.yml
 ```
+
+Then submit your repository URL through the portal at
+**<https://evaluentis.leitass.eu>**. Never by email.
+
+At grading, `canonical/` and `tests/public/` are replaced with the official
+copies from this repository. An edit to either is not seen, so do not make
+one to get a test passing.
+
+The graded commit is the SHA at `HEAD` **when you submit** — later pushes are
+not seen. Run `npm test` against a fresh `docker compose up -d --wait` one
+more time before you do.
 
 See [how an assignment works](../README.md#how-an-assignment-works) in the
-root README for the submission procedure, the late penalty and the
-progression gate. Read [`../CONTRIBUTING.md`](../CONTRIBUTING.md) before
-asking a question — it will usually be faster.
+root README for the late penalty and the progression gate. Read
+[`../CONTRIBUTING.md`](../CONTRIBUTING.md) before asking a question — it will
+usually be faster.

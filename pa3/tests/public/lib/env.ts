@@ -12,7 +12,7 @@ import { fileURLToPath } from "node:url";
 export const PA3_ROOT = fileURLToPath(new URL("../../../", import.meta.url));
 
 export const ORDER_API_URL =
-  process.env.ORDER_API_URL ?? "http://localhost:8080";
+  process.env.ORDER_API_URL ?? "http://localhost:8083";
 
 export const RABBITMQ_AMQP_URL =
   process.env.RABBITMQ_AMQP_URL ?? "amqp://guest:guest@localhost:5672";

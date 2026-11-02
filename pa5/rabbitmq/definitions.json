@@ -86,13 +86,6 @@
       }
     },
     {
-      "name": "orders.dlq",
-      "vhost": "/",
-      "durable": true,
-      "auto_delete": false,
-      "arguments": {}
-    },
-    {
       "name": "payment.results",
       "vhost": "/",
       "durable": true,
@@ -137,15 +130,6 @@
       "name": "orders.return.exchange",
       "vhost": "/",
       "type": "direct",
-      "durable": true,
-      "auto_delete": false,
-      "internal": false,
-      "arguments": {}
-    },
-    {
-      "name": "orders.dlq.exchange",
-      "vhost": "/",
-      "type": "fanout",
       "durable": true,
       "auto_delete": false,
       "internal": false,
@@ -250,14 +234,6 @@
       "destination": "notifications.queue",
       "destination_type": "queue",
       "routing_key": "notifications.queue",
-      "arguments": {}
-    },
-    {
-      "vhost": "/",
-      "source": "orders.dlq.exchange",
-      "destination": "orders.dlq",
-      "destination_type": "queue",
-      "routing_key": "",
       "arguments": {}
     },
     {

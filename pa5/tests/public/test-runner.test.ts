@@ -1,8 +1,11 @@
 /**
- * Ported from the JS lab's test/test-runner.test.js. All seven tests are
+ * Tests 1–7 are ported from the JS lab's test/test-runner.test.js and are
  * unchanged in behaviour — every assertion about retry counts, DLQ arrival,
  * idempotency, correlation-id propagation, timing, and exchange/queue
- * topology is the same. The one deliberate change is postOrder(): it now
+ * topology is the same. Tests 8–10 were added for autumn 2026: the services
+ * declare the dead letter and invalid message channels themselves, classify
+ * a malformed message as permanent, and replay the DLQ. The one deliberate
+ * change to tests 1–7 is postOrder(): it now
  * POSTs a canonical order (../../canonical/order.schema.json) instead of the
  * lab's ad-hoc {customerId, items, totalAmount, orderType} shape — see
  * docs/adr-004.md.
@@ -26,8 +29,11 @@ import { fileURLToPath } from "node:url";
 import amqp from "amqplib";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import {
+  closeQuietly,
   connectToRabbit,
   consumeFromQueue,
+  getBindings,
+  getConsumerCount,
   getExchangeInfo,
   getQueueInfo,
   purgeQueue,
@@ -55,6 +61,7 @@ const allQueues = [
   "inventory.retry.queue",
   "notifications.retry.queue",
   "orders.dlq",
+  "orders.invalid",
   ...resultQueues,
 ];
 
@@ -162,16 +169,16 @@ describe("Practice 2 Event-Driven Messaging (ported to TypeScript)", () => {
   // (tsx's startup overhead widens this window compared to the original
   // plain-node lab). Without this, test 1's one-shot consumer-count check
   // can race a not-yet-registered consumer on a cold start and fail for a
-  // reason that has nothing to do with what it's actually testing. This
-  // does not change any assertion in any of the seven tests below.
+  // reason that has nothing to do with what it's actually testing. Counts
+  // come live from the broker (getConsumerCount), not from the management
+  // API's stats, which lag by up to ~5 s after a container is replaced.
   beforeAll(async () => {
     const deadline = Date.now() + 60_000;
     const queues = ["payments.queue", "inventory.queue", "notifications.queue"];
     for (const queueName of queues) {
       for (;;) {
         try {
-          const info = await getQueueInfo(queueName);
-          if (info.consumers >= 1) break;
+          if ((await getConsumerCount(queueName)) >= 1) break;
         } catch {
           // queue may not be declared yet; keep polling
         }
@@ -216,8 +223,7 @@ describe("Practice 2 Event-Driven Messaging (ported to TypeScript)", () => {
     expect(mgmt.status).toBe(200);
 
     for (const queueName of ["payments.queue", "inventory.queue", "notifications.queue"]) {
-      const info = await getQueueInfo(queueName);
-      expect(info.consumers).toBeGreaterThan(0);
+      expect(await getConsumerCount(queueName), `${queueName} must have a consumer`).toBeGreaterThan(0);
     }
   });
 
@@ -246,7 +252,7 @@ describe("Practice 2 Event-Driven Messaging (ported to TypeScript)", () => {
     for (const queueName of ["payments.queue", "inventory.queue", "notifications.queue"]) {
       const info = await getQueueInfo(queueName);
       expect(info).toBeDefined();
-      expect(info.consumers).toBeGreaterThanOrEqual(1);
+      expect(await getConsumerCount(queueName), `${queueName} must have a consumer`).toBeGreaterThanOrEqual(1);
     }
   });
 
@@ -339,12 +345,11 @@ describe("Practice 2 Event-Driven Messaging (ported to TypeScript)", () => {
 
     const { connection, channel } = await connectToRabbit();
 
-    // Simulates the retry topology's fan-out-to-every-consumer-queue
-    // redelivery (see rabbitmq/definitions.json): the same correlationId,
-    // republished directly to notifications.queue, as if it had come back
-    // through the retry path a second time. Content is a fresh canonical
-    // order (reusing the logged orderId) — irrelevant to the assertion,
-    // which is about correlationId-keyed dedup, not the body.
+    // Simulates an at-least-once redelivery — an ack lost after the log line
+    // was written, or a producer that published twice: the same
+    // correlationId, sent again directly to notifications.queue. Content is
+    // a fresh canonical order (reusing the logged orderId) — irrelevant to
+    // the assertion, which is about correlationId-keyed dedup, not the body.
     const duplicateOrder: CanonicalOrder = {
       ...canonicalOrderFixture(),
       orderId: firstEntry.orderId,
@@ -381,6 +386,7 @@ describe("Practice 2 Event-Driven Messaging (ported to TypeScript)", () => {
 
     const conn = await amqp.connect(RABBITMQ_URL);
     const channel = await conn.createChannel();
+    channel.on("error", () => {}); // see connectToRabbit in helpers/rabbit-helper.ts
 
     const deadline = Date.now() + 10_000;
     let found: import("amqplib").GetMessage | null = null;
@@ -409,4 +415,141 @@ describe("Practice 2 Event-Driven Messaging (ported to TypeScript)", () => {
     const totalCount = (xDeath ?? []).reduce((sum, death) => sum + (Number(death?.count) || 0), 0);
     expect(totalCount).toBeGreaterThanOrEqual(2);
   });
+
+  test("8) the dead letter and invalid message channels are declared", async () => {
+    const channels: Array<[exchangeName: string, queueName: string]> = [
+      ["orders.dlq.exchange", "orders.dlq"],
+      ["orders.invalid.exchange", "orders.invalid"],
+    ];
+
+    for (const [exchangeName, queueName] of channels) {
+      const exchange = await getExchangeInfo(exchangeName);
+      expect(exchange.type, `${exchangeName} must be a fanout exchange`).toBe("fanout");
+      expect(exchange["durable"], `${exchangeName} must be durable`).toBe(true);
+
+      const queue = await getQueueInfo(queueName);
+      expect(queue["durable"], `${queueName} must be durable`).toBe(true);
+
+      const bindings = (await getBindings(exchangeName)) as Array<{ destination: string; destination_type: string }>;
+      expect(
+        bindings.some((b) => b.destination === queueName && b.destination_type === "queue"),
+        `${queueName} must be bound to ${exchangeName}`,
+      ).toBe(true);
+    }
+  });
+
+  test("9) a malformed message goes to the invalid message channel, from every consumer, without a retry", async () => {
+    await purgeKnownQueues();
+
+    const correlationId = crypto.randomUUID();
+    const poison = "{ this is not json";
+    const { connection, channel } = await connectToRabbit();
+
+    try {
+      // A producer bug: bytes that no consumer can ever parse, sent through
+      // the fanout, so all three consumers receive them.
+      channel.publish("orders.exchange", "", Buffer.from(poison), {
+        headers: { correlationId },
+        contentType: "application/json",
+        persistent: true,
+      });
+
+      const invalid = await consumeFromQueue(channel, "orders.invalid", 10_000, 3);
+      const mine = invalid.filter((m) => headerCorrelationId(m) === correlationId);
+      expect(mine.length, "each of the three consumers must move the malformed message to orders.invalid").toBe(3);
+
+      for (const m of mine) {
+        expect(m.payload, "the original bytes must be kept unchanged").toBe(poison);
+        expect(
+          (m.properties?.headers as Record<string, unknown> | undefined)?.["x-death"],
+          "a permanent failure must not go through the retry path first",
+        ).toBeUndefined();
+      }
+
+      const dlq = await consumeFromQueue(channel, "orders.dlq", 2_000, 10);
+      expect(
+        dlq.filter((m) => headerCorrelationId(m) === correlationId),
+        "a malformed message belongs in orders.invalid, not orders.dlq",
+      ).toHaveLength(0);
+    } finally {
+      await closeQuietly({ connection, channel });
+      // A consumer that crashed on the poison leaves it unacked in its queue,
+      // where it would crash the consumer again after every restart.
+      await purgeKnownQueues();
+    }
+  });
+
+  test("10) DLQ replay sends a message back to the consumer that failed it, and only that one", async () => {
+    await purgeKnownQueues();
+    await restartService("inventory-service", { INVENTORY_FAIL_RATE: "0" });
+    await restartService("payment-service", { PAYMENT_FAIL_RATE: "100" });
+
+    const { response, body } = await postOrder();
+    expect(response.status).toBe(201);
+    const correlationId = (body as { correlationId: string }).correlationId;
+
+    const { connection, channel } = await connectToRabbit();
+
+    try {
+      const deadline = Date.now() + 15_000;
+      while ((await channel.checkQueue("orders.dlq")).messageCount < 1) {
+        if (Date.now() > deadline) {
+          throw new Error("the failed payment never reached orders.dlq within 15s");
+        }
+        await sleep(250);
+      }
+
+      // The cause is fixed; now replay.
+      await restartService("payment-service", { PAYMENT_FAIL_RATE: "0" });
+
+      const replay = await fetch(`${ORDER_SERVICE_URL}/dlq/replay`, {
+        method: "POST",
+        signal: AbortSignal.timeout(10_000),
+      });
+      expect(replay.status).toBe(200);
+      const replayBody = (await replay.json()) as { replayed?: unknown };
+      expect(replayBody.replayed).toBeGreaterThanOrEqual(1);
+
+      const paymentResult = await waitForMessage(channel, "payment.results", correlationId, 10_000);
+      expect(paymentResult, "the replayed payment must succeed and publish its result").toBeDefined();
+
+      expect((await channel.checkQueue("orders.dlq")).messageCount, "replay must drain orders.dlq").toBe(0);
+
+      // Inventory handled this order once, on the original delivery. A replay
+      // through orders.exchange (the fanout) would make it handle it again.
+      await sleep(2_000);
+      const inventoryResults = await consumeFromQueue(channel, "inventory.results", 2_000, 10);
+      expect(
+        inventoryResults.filter((m) => headerCorrelationId(m) === correlationId),
+        "replay must reach only the queue the message came from",
+      ).toHaveLength(1);
+    } finally {
+      await closeQuietly({ connection, channel });
+    }
+  });
 });
+
+function headerCorrelationId(m: { properties?: { headers?: unknown } }): unknown {
+  return (m.properties?.headers as Record<string, unknown> | undefined)?.["correlationId"];
+}
+
+async function waitForMessage(
+  channel: import("amqplib").Channel,
+  queueName: string,
+  correlationId: string,
+  timeout: number,
+): Promise<unknown> {
+  const deadline = Date.now() + timeout;
+  while (Date.now() < deadline) {
+    const msg = await channel.get(queueName, { noAck: false });
+    if (msg) {
+      channel.ack(msg);
+      if (headerCorrelationId(msg) === correlationId) {
+        return msg;
+      }
+      continue;
+    }
+    await sleep(200);
+  }
+  return undefined;
+}

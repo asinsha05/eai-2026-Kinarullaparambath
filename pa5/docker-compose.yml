@@ -1,6 +1,8 @@
-# PA5 stack: RabbitMQ (pre-declared fanout + DLX/TTL-retry topology, see
+# PA5 stack: RabbitMQ (pre-declared fanout + TTL-retry topology, see
 # rabbitmq/definitions.json) + order-service (HTTP producer) + three
-# consumers (payment/inventory/notification).
+# consumers (payment/inventory/notification). The dead letter channel and
+# the invalid message channel are NOT pre-declared — the services declare
+# them (see README.md, "What to build").
 #
 # Ports are PA5's own range so this stack can run alongside PA1-4/6-8's
 # stacks without tearing any of them down — see the repo-wide port
@@ -29,9 +31,10 @@
 # service's own src/server.ts imports it as "../../shared/rabbit" (two
 # levels up — out of src/, out of the service's own project root, matching
 # this file's on-disk depth from pa5/<service>/src/ to pa5/shared/ exactly).
-# shared/ carries its own package.json/node_modules for the same reason PA4's
-# mock-pricing/ does — it resolves "amqplib" from its own directory,
-# independently of whichever service mounts it.
+# At runtime shared/rabbit.ts resolves "amqplib" through /node_modules, which
+# each service's Dockerfile links to its own installed dependencies — so a
+# clean clone needs no `npm install` inside shared/. shared/package.json only
+# serves editors and type-checking on the host.
 name: pa5
 
 services:

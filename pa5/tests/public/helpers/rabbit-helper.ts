@@ -36,7 +36,35 @@ export interface RabbitConnection {
 export async function connectToRabbit(): Promise<RabbitConnection> {
   const connection = await amqp.connect(RABBITMQ_URL);
   const channel = await connection.createChannel();
+  // When the broker closes a channel (e.g. NOT_FOUND on a queue nobody has
+  // declared yet), amqplib rejects the pending call AND emits "error". The
+  // rejection already fails the test that made the call; without a listener
+  // the event would also crash the whole test run.
+  channel.on("error", () => {});
   return { connection, channel };
+}
+
+/** Close without throwing — a channel the broker already closed rejects close(). */
+export async function closeQuietly({ connection, channel }: RabbitConnection): Promise<void> {
+  await channel.close().catch(() => {});
+  await connection.close().catch(() => {});
+}
+
+/**
+ * Live consumer count, straight from the broker (a passive queue.declare).
+ * The management API's `consumers` figure is a stats snapshot refreshed
+ * about every 5 seconds: right after `docker compose up --build` replaces a
+ * container it can still report the old container's consumer, or none for
+ * the new one.
+ */
+export async function getConsumerCount(queueName: string): Promise<number> {
+  const conn = await connectToRabbit();
+  try {
+    const { consumerCount } = await conn.channel.checkQueue(queueName);
+    return consumerCount;
+  } finally {
+    await closeQuietly(conn);
+  }
 }
 
 export interface ConsumedMessage {

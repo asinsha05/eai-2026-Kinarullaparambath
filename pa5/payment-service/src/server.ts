@@ -1,8 +1,5 @@
 /**
- * PA5 payment-service — the reference consumer. Connection, consume setup,
- * and retry/DLQ logic are given below and work as-is; only the TODO in the
- * `try` block is yours. Study this file, then replicate the pattern in
- * inventory-service and notification-service.
+ * PA5 payment-service — the reference consumer.
  */
 
 import type { ConsumeMessage } from "amqplib";
@@ -11,45 +8,91 @@ import type { CanonicalOrder } from "../../shared/canonical-order";
 
 const QUEUE = "payments.queue";
 const RESULTS_EXCHANGE = "results.payment";
-const MAX_RETRIES = Number(process.env.MAX_RETRIES) || 3;
-const FAIL_RATE = Number(process.env.PAYMENT_FAIL_RATE) || 20;
+const DLQ_EXCHANGE = process.env.DLQ_EXCHANGE ?? "orders.dlq.exchange";
+const INVALID_EXCHANGE = "orders.invalid.exchange";
+// `?? "20"`, not `|| 20`: Number("0") is 0, and `0 || 20` is 20.
+const MAX_RETRIES = Number(process.env.MAX_RETRIES ?? "3");
+const FAIL_RATE = Number(process.env.PAYMENT_FAIL_RATE ?? "20");
+
+// A failure that will repeat identically on every attempt: never retried.
+class PermanentError extends Error {}
 
 async function main(): Promise<void> {
   const { channel } = await connectWithRetry(process.env.RABBITMQ_URL!);
   await channel.prefetch(1);
+
+  // Declare the two channels this consumer publishes to. Properties must be
+  // exactly the same in every service (PRECONDITION_FAILED otherwise).
+  await channel.assertExchange(DLQ_EXCHANGE, "fanout", { durable: true });
+  await channel.assertQueue("orders.dlq", { durable: true });
+  await channel.bindQueue("orders.dlq", DLQ_EXCHANGE, "");
+
+  await channel.assertExchange(INVALID_EXCHANGE, "fanout", { durable: true });
+  await channel.assertQueue("orders.invalid", { durable: true });
+  await channel.bindQueue("orders.invalid", INVALID_EXCHANGE, "");
 
   console.log(`[Payment] Consuming from ${QUEUE}, fail rate: ${FAIL_RATE}%`);
 
   await channel.consume(QUEUE, async (msg: ConsumeMessage | null) => {
     if (!msg) return;
 
-    const order = JSON.parse(msg.content.toString()) as CanonicalOrder;
     const correlationId = msg.properties.headers?.["correlationId"] as string | undefined;
     const retryCount = getRetryCount(msg);
 
     console.log(`[Payment] Processing ${correlationId} (attempt ${retryCount + 1})`);
 
     try {
-      // TODO (student): Implement payment validation logic
-      // - Simulate success/failure based on FAIL_RATE (a random number 0-100;
-      //   below FAIL_RATE means failure)
-      // - On success: ack the message and publish a result event to
-      //   RESULTS_EXCHANGE — headers: { correlationId }, contentType:
-      //   "application/json", body shape:
-      //     { correlationId, source: "payment", status: "success", timestamp, details: { message } }
-      // - On failure: throw an Error to trigger the retry/DLQ logic below
-      //
-      // `order` (typed CanonicalOrder, from ../../shared/canonical-order) is
-      // available here if your validation wants to look at it (e.g. reject
-      // orders over some amount) — this simulation does not require it.
+      // Permanent: without a correlation id the lifecycle cannot be traced.
+      if (!correlationId) {
+        throw new PermanentError("missing correlationId header");
+      }
 
-      throw new Error("Not implemented — replace this with your logic");
+      // Parsed INSIDE the try: invalid JSON throws a SyntaxError (permanent).
+      const order = JSON.parse(msg.content.toString()) as CanonicalOrder;
+
+      // Permanent: valid JSON that is not an order object.
+      if (typeof order !== "object" || order === null || Array.isArray(order)) {
+        throw new PermanentError("body is not an order object");
+      }
+
+      // Temporary failure: simulated, may succeed on the next attempt.
+      if (Math.random() * 100 < FAIL_RATE) {
+        throw new Error("Payment provider unavailable (simulated)");
+      }
+
+      // Success: publish the result first, then ack.
+      const result = {
+        correlationId,
+        source: "payment",
+        status: "success",
+        timestamp: new Date().toISOString(),
+        details: { message: "Payment accepted" },
+      };
+      channel.publish(RESULTS_EXCHANGE, "", Buffer.from(JSON.stringify(result)), {
+        headers: { correlationId },
+        contentType: "application/json",
+        persistent: true,
+      });
+      channel.ack(msg);
+      console.log(`[Payment] Done ${correlationId}`);
     } catch (err) {
-      // Retry / DLQ logic (provided as reference — study this for the other
-      // two services). Do not modify.
-      if (retryCount >= MAX_RETRIES - 1) {
-        channel.publish(process.env.DLQ_EXCHANGE!, "", msg.content, {
+      // Classify: permanent failures never succeed, however often retried.
+      if (err instanceof SyntaxError || err instanceof PermanentError) {
+        channel.publish(INVALID_EXCHANGE, "", msg.content, {
           headers: msg.properties.headers,
+          persistent: true,
+        });
+        channel.ack(msg);
+        console.log(`[Payment] -> INVALID (no retry): ${(err as Error).message}`);
+        return;
+      }
+
+      // Retry / DLQ logic (provided). Do not modify.
+      if (retryCount >= MAX_RETRIES - 1) {
+        channel.publish(DLQ_EXCHANGE, "", msg.content, {
+          // originQueue tells a later replay which queue to send it back to.
+          headers: { ...msg.properties.headers, originQueue: QUEUE },
+          persistent: true,
         });
         channel.ack(msg);
         console.log(`[Payment] -> DLQ after ${retryCount + 1} attempts: ${(err as Error).message}`);

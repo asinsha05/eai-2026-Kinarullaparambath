@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "PA5 shared/ — connection helper + canonical order type, mounted read-only into every service container. Deliberately self-contained (its own node_modules) so it resolves 'amqplib' from its own directory regardless of which service mounts it or how deep that service nests its own src/ — see docs/adr-004.md and the comment at the top of ../docker-compose.yml.",
+  "description": "PA5 shared/ — connection helper, retry-count reader and canonical order type, mounted read-only into every service container at /shared. At runtime it resolves amqplib through each image's /node_modules link (see ../docker-compose.yml); this package.json only serves editors and type-checking on the host.",
   "dependencies": {
     "amqplib": "^0.10.4"
   },

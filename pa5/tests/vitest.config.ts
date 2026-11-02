@@ -1,10 +1,9 @@
 import { defineConfig } from "vitest/config";
 
-// Public tests live in ./public and ship with the assignment. WP-13's brief
-// does not add hidden PA5 test cases (unlike PA5's siblings) — all seven of
-// the original lab's tests are public here — but the include pattern still
-// picks up ./hidden if a grading box ever drops one there, at no cost when
-// it doesn't exist.
+// Public tests live in ./public and ship with the assignment. PA5 has no
+// hidden test cases (unlike its siblings) — every test is public — but the
+// include pattern still picks up ./hidden if a grading box ever drops one
+// there, at no cost when it doesn't exist.
 export default defineConfig({
   test: {
     include: ["public/**/*.test.ts", "hidden/**/*.test.ts"],

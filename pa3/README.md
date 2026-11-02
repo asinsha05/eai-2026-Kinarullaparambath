@@ -170,13 +170,24 @@ complete order, non-empty for a partial one.
 
 ```bash
 cd pa3
-docker compose up -d --wait
+docker compose up -d --build --wait
+npm --prefix tests ci          # once, before your first test run
 npm --prefix tests test
 ```
 
 No `make`, and no Windows-specific step — Docker Compose and `npm` are all
 this assignment needs beyond what Session 0 already proved works on your
 machine.
+
+**Rebuild after every edit.** Each service's code is copied into its image
+when the image is built, so a change to `router-service/app.py` or
+`aggregator-service/app.py` does nothing until you run
+`docker compose up -d --build --wait` again. If a change seems to have no
+effect, this is almost always why.
+
+The order API is on host port **8083**, not 8080 — Session 0's echo
+container holds 8080, and comes back every time Docker starts unless you
+stopped it.
 
 Watch what actually happens:
 
@@ -197,7 +208,7 @@ docker compose down -v
 ### Submitting an order by hand
 
 ```bash
-curl -X POST http://localhost:8080/orders \
+curl -X POST http://localhost:8083/orders \
   -H "Content-Type: application/json" \
   -d '{
     "customerId": "cust-123",
@@ -231,9 +242,13 @@ that never arrives. That is expected. Work in this order:
    given lab never had to handle.
 3. **Get the happy-path aggregation working**: collect results, complete
    when the count matches `totalItems`.
-4. **Add the timeout.** Decide on a number and a strategy (fixed deadline
-   vs. idle timeout — see the ADR prompts in `docs/adr-002.md`), and make
-   sure a stopped worker produces a partial result instead of a hang.
+4. **Add the timeout.** It must be an **idle** timeout — measured from the
+   last result received for that order, not from when the order arrived —
+   so a large order whose workers are all still answering never times out
+   mid-flight. Read the value from `AGGREGATOR_IDLE_TIMEOUT_SECONDS` (the
+   scaffold already does); `docker-compose.yml` sets it to 5 seconds and
+   the public tests assume that. Make sure a stopped worker produces a
+   partial result instead of a hang.
 5. **Handle duplicates and concurrent orders** — the hidden tests probe
    both, and both fall out for free from a data structure keyed
    correctly by `orderId` and `itemIndex`.
@@ -280,10 +295,10 @@ assignment's mark.** The template has the prompts; the short version of
 what it is asking:
 
 > You made at least four real decisions building this: how correlation
-> survives the splitter, what your timeout number is and why, what
-> "partial" actually contains, and how a duplicate result gets ignored
-> instead of double-counted. Show your reasoning on the ones that were
-> genuinely open questions for you.
+> survives the splitter, what timeout value you would run in production
+> and why, what "partial" actually contains, and how a duplicate result
+> gets ignored instead of double-counted. Show your reasoning on the ones
+> that were genuinely open questions for you.
 
 Write it after the code, while the annoyance is still fresh.
 
@@ -308,7 +323,7 @@ Then submit your repository URL through the portal at
 **<https://evaluentis.leitass.eu>**. Never by email.
 
 The graded commit is the SHA at `HEAD` **when you submit** — later pushes
-are not seen. Run `docker compose up -d --wait && npm --prefix tests test`
+are not seen. Run `docker compose up -d --build --wait && npm --prefix tests test`
 one more time before you do.
 
 See [how an assignment works](../README.md#how-an-assignment-works) in the

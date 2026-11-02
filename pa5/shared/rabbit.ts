@@ -1,10 +1,10 @@
 /**
  * Connection helper + retry-count reader, shared by all four services.
  *
- * Ported line-for-line from the proven JS lab's shared/rabbit.js — this file
- * carries no assignment-specific logic and is not part of what any service
- * "implements". It is mounted read-only into every container at
- * /app/shared (see ../docker-compose.yml), exactly like the original.
+ * Ported from the proven JS lab's shared/rabbit.js — this file carries no
+ * assignment-specific logic and is not part of what any service
+ * "implements". It is mounted read-only into every container at /shared
+ * (see ../docker-compose.yml).
  */
 
 import amqp, { type Channel, type ChannelModel, type ConsumeMessage } from "amqplib";
@@ -72,19 +72,46 @@ export async function connectWithRetry(
 }
 
 /**
- * Parses the `x-death` header array RabbitMQ attaches once a message has
- * been dead-lettered at least once, and sums the retry counts across every
- * exchange/queue path it travelled through. Returns 0 for a message that
- * has never been retried.
+ * How many times this message has already failed in a consumer: the number
+ * of times it was rejected (nack'd) into the retry path, read from the
+ * `x-death` header RabbitMQ attaches once a message has been dead-lettered.
+ * Returns 0 for a message that has never been retried.
+ *
+ * Only `reason: "rejected"` entries count. One retry cycle dead-letters a
+ * message twice — rejected out of the consumer queue, then expired out of
+ * the retry queue — so summing every entry would count each failed attempt
+ * twice.
  */
 export function getRetryCount(msg: ConsumeMessage): number {
   const xDeath = msg.properties.headers?.["x-death"] as
-    | Array<{ count?: number }>
+    | Array<{ count?: number; reason?: string }>
     | undefined;
 
   if (!Array.isArray(xDeath)) {
     return 0;
   }
 
-  return xDeath.reduce((sum, entry) => sum + (Number(entry?.count) || 0), 0);
+  return xDeath
+    .filter((entry) => entry?.reason === "rejected")
+    .reduce((sum, entry) => sum + (Number(entry?.count) || 0), 0);
+}
+
+/**
+ * A copy of a message's headers with RabbitMQ's dead-lettering history
+ * removed (`x-death`, `x-first-death-*`, `x-last-death-*`), and everything
+ * else — correlationId included — kept. Use it when replaying a message from
+ * the DLQ, so the replayed message starts with a fresh retry count instead of
+ * going straight back to the DLQ on its first failure.
+ */
+export function withoutRetryHistory(
+  headers: Record<string, unknown> | undefined,
+): Record<string, unknown> {
+  const kept: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(headers ?? {})) {
+    if (key === "x-death" || key.startsWith("x-first-death-") || key.startsWith("x-last-death-")) {
+      continue;
+    }
+    kept[key] = value;
+  }
+  return kept;
 }
