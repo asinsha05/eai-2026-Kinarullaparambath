@@ -1,44 +1,53 @@
 # Architecture
 
-<!--
-Capstone architecture (README §6, R-6.1). Keep the two ## headings exactly as
-they are, and put one ```mermaid block under each. The stage 6 tests check
-that both are there, and that the integration diagram names at least 6 of the
-exchanges and queues in README §3.2. No manual points, but the defence starts
-here: you explain your system from these two diagrams.
-
-Comments like this one are prompts. They do not count as your text, and
-nobody grades them: delete each one when you have written its section.
-
-Mermaid renders on GitHub. Check yours there, or at https://mermaid.live.
--->
-
 ## System context
 
-<!--
-Your system from the outside: who sends it orders (web, mobile, a b2b
-partner), who operates it, and which providers it calls (pricing, payment,
-inventory, shipping, notification; Temporal if you build the advanced
-component). Your system can be one box here, or your four services.
-
-The syntax, not the answer. (A plain arrow is two dashes and a ">"; an HTML
-comment cannot show one, so this example uses the thick arrow.)
+Orders arrive from three kinds of client, an operator watches the system, and the system calls five providers.
 
 ```mermaid
 flowchart LR
-  partner[B2B partner] ==>|POST /orders, XML| intake
+  web["Web client JSON"] -->|"POST /orders"| sys
+  mobile["Mobile client JSON"] -->|"POST /orders"| sys
+  b2b["B2B partner XML windows-1257"] -->|"POST /orders"| sys
+  op["Operator"] -->|"trace, metrics, dlq, sagas"| sys
+  sys["Capstone: intake, orchestrator, notifier, observer"]
+  sys -->|"price lookup"| pricing["Pricing API"]
+  sys -->|"authorize, refund"| payment["Payment API"]
+  sys -->|"reserve, release"| inventory["Inventory API"]
+  sys -->|"create"| shipping["Shipping API"]
+  sys -->|"send"| notification["Notification API"]
 ```
--->
 
 ## Integration architecture
 
-<!--
-Inside the system: your services, every exchange and queue of README §3.2,
-and the paths a message can take. Show the retry path (the retry queue and
-its way back), the DLQ and the invalid channel, the outcome events and who
-consumes them, and the wire tap into trace.store. Label an edge with its
-routing key where one matters.
+```mermaid
+flowchart TB
+  client([Client]) -->|"POST /orders"| intake
+  intake -->|"enrich"| pricing["Pricing API"]
+  intake -->|"order.accepted"| ox["orders.exchange"]
+  ox --> sq["saga.queue"]
+  sq --> orch["orchestrator"]
+  sq -. "nack" .-> rx["orders.retry.exchange"]
+  rx --> srq["saga.retry.queue"]
+  srq -. "TTL 1 s" .-> rtx["orders.return.exchange"]
+  rtx --> sq
+  orch --> providers["payment, inventory, shipping, notification"]
+  orch -->|"order.* events"| oo["orders.outcome"]
+  oo -->|"order.failed, order.compensated"| nq["notifications.queue"]
+  oo --> iq["intake.outcome"]
+  iq --> intake
+  nq --> notifier
+  notifier -->|"notice"| providers
+  orch -->|"after MAX_RETRIES"| dx["orders.dlq.exchange"]
+  notifier -->|"after MAX_RETRIES"| dx
+  dx --> dlq["orders.dlq"]
+  orch -->|"unparseable"| ix["orders.invalid.exchange"]
+  ix --> inv["orders.invalid"]
+  intake -. "hop" .-> te["trace.events"]
+  orch -. "hop" .-> te
+  notifier -. "hop" .-> te
+  te --> ts["trace.store"]
+  ts --> observer
+```
 
-Draw what your code does, not what the brief says. If your notifier
-consumes something the brief does not mention, it is in the diagram.
--->
+The solid arrows are the business flow; the dotted ones are the retry path (a nack goes through `orders.retry.exchange` into a one-second delay queue and back to `saga.queue`) and the wire tap into `trace.events`. The notifier has the same retry path through `notifications.retry.queue`.

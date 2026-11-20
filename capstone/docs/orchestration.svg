@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="320" font-family="Arial" font-size="12">
+  <defs><marker id="a" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7"/></marker></defs>
+  <rect width="1000" height="320" fill="white"/>
+  <circle cx="35" cy="90" r="16" fill="white" stroke="black"/>
+  <text x="35" y="130" text-anchor="middle">order.accepted</text>
+  <polygon points="100,90 125,65 150,90 125,115" fill="white" stroke="black"/>
+  <text x="125" y="140" text-anchor="middle">b2b?</text>
+  <rect x="190" y="65" width="110" height="50" rx="8" fill="white" stroke="black"/><text x="245" y="95" text-anchor="middle">payment</text>
+  <rect x="340" y="65" width="110" height="50" rx="8" fill="white" stroke="black"/><text x="395" y="95" text-anchor="middle">inventory</text>
+  <rect x="490" y="65" width="110" height="50" rx="8" fill="white" stroke="black"/><text x="545" y="95" text-anchor="middle">shipping</text>
+  <rect x="640" y="65" width="110" height="50" rx="8" fill="white" stroke="black"/><text x="695" y="95" text-anchor="middle">notification</text>
+  <circle cx="800" cy="90" r="14" fill="white" stroke="black" stroke-width="3"/>
+  <text x="800" y="130" text-anchor="middle">completed</text>
+  <line x1="51" y1="90" x2="99" y2="90" stroke="black" marker-end="url(#a)"/>
+  <line x1="150" y1="90" x2="189" y2="90" stroke="black" marker-end="url(#a)"/>
+  <line x1="300" y1="90" x2="339" y2="90" stroke="black" marker-end="url(#a)"/>
+  <line x1="450" y1="90" x2="489" y2="90" stroke="black" marker-end="url(#a)"/>
+  <line x1="600" y1="90" x2="639" y2="90" stroke="black" marker-end="url(#a)"/>
+  <line x1="750" y1="90" x2="785" y2="90" stroke="black" marker-end="url(#a)"/>
+  <path d="M125 65 L125 30 L395 30 L395 64" fill="none" stroke="black" marker-end="url(#a)"/>
+  <text x="260" y="24" text-anchor="middle">b2b: no payment</text>
+  <rect x="340" y="230" width="110" height="40" rx="8" fill="white" stroke="black" stroke-dasharray="5 3"/><text x="395" y="254" text-anchor="middle">inventory_release</text>
+  <rect x="190" y="230" width="110" height="40" rx="8" fill="white" stroke="black" stroke-dasharray="5 3"/><text x="245" y="254" text-anchor="middle">payment_refund</text>
+  <circle cx="545" cy="200" r="14" fill="white" stroke="black"/>
+  <text x="545" y="180" text-anchor="middle">error / timeout boundary events</text>
+  <text x="545" y="235" text-anchor="middle">compensated (reverse order)</text>
+  <line x1="545" y1="115" x2="545" y2="185" stroke="black" stroke-dasharray="4 3" marker-end="url(#a)"/>
+  <line x1="531" y1="200" x2="451" y2="250" stroke="black" marker-end="url(#a)"/>
+  <line x1="340" y1="250" x2="301" y2="250" stroke="black" marker-end="url(#a)"/>
+  <text x="245" y="300" text-anchor="middle">payment 4xx: failed, nothing to compensate</text>
+</svg>
