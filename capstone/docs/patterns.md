@@ -1,37 +1,16 @@
 # Patterns
 
-<!--
-The integration patterns in your system, and where they are (README §6, R-6.3).
-
-What the stage 6 tests check: a table with the columns Pattern | Problem |
-Where | Why, at least 8 rows, a Normalizer row among them, and every Where
-link resolving to a file and a line that exist in your repository.
-
-What is judged (GRADING.md §5, M4): every row must be true at its link. A row
-that claims something your code does not do is a false row. One false row
-costs M4's point; more than one also costs up to 3 more points of the manual
-block. Eight true rows beat twelve rows with two wrong ones. At the defence I
-pick a row and you show me the code behind it.
-
-Where: link the line where the pattern happens, not the file's first line.
-Either form works:
-
-    [normalize.ts:42](../intake/src/normalize.ts#L42)    a link, resolved from docs/
-    intake/src/normalize.ts:42                           a bare path, from capstone/
-
-A pattern in two places can have two links. After you change the code,
-check that the lines still point where you mean.
-
-The course's patterns include: Normalizer, Message Translator, Content
-Enricher, Content Filter, Canonical Data Model, Content-Based Router,
-Idempotent Receiver, Guaranteed Delivery, Dead Letter Channel, Invalid
-Message Channel, Retry with a delay queue, Correlation Identifier, Wire Tap,
-Message Store, Process Manager / Saga, Compensating Transaction, Semantic
-Lock, Competing Consumers. List only the ones your code really has.
-
-Problem: what goes wrong without the pattern, in this system. Why: why this
-pattern and not another. One sentence each is enough.
--->
+The integration patterns this system really uses, and the line where each one happens.
 
 | Pattern | Problem | Where | Why |
 |---|---|---|---|
+| Normalizer | Three order formats reach one endpoint | intake/src/translate.ts:193 | One POST /orders for web, mobile and b2b; the format is detected from the content type and the bytes |
+| Message Translator | Each source names and encodes its fields differently | intake/src/translate.ts:109 | Every source is translated to the canonical order (my PA4 translators, now taking bytes) |
+| Content Enricher | The orders carry no prices | intake/src/translate.ts:229 | Prices come from the pricing API, so a client cannot choose its own price |
+| Canonical Data Model | Four services would otherwise share three formats | intake/src/server.ts:97 | Everything after intake speaks one order, validated against canonical/order.schema.json |
+| Idempotent Receiver | A client retry must not create a second order | intake/src/server.ts:129 | The same Idempotency-Key and body give the same stored answer and no second event |
+| Process Manager (Saga) | Four providers must succeed or be undone together | orchestrator/src/server.ts:239 | The orchestrator runs the steps in order and decides what happens on failure |
+| Compensating Transaction | A failed step must undo the completed ones | orchestrator/src/server.ts:189 | Release and refund run in reverse order, with idempotency keys |
+| Retry with a delay queue | A temporary failure of the first step should be retried, not lost | orchestrator/src/server.ts:341 | A nack dead-letters into a one-second TTL queue and back to saga.queue |
+| Dead Letter Channel | A message that keeps failing must not block the queue | orchestrator/src/server.ts:350 | After MAX_RETRIES the message goes to orders.dlq with originQueue and lastError, ready to replay |
+| Invalid Message Channel | A message that can never succeed must not be retried | orchestrator/src/server.ts:226 | Unparseable or invalid messages go to orders.invalid at once and are never replayed |
