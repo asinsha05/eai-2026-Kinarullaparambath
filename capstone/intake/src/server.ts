@@ -5,6 +5,7 @@ import express, { type Response } from "express";
 import type { Channel, ConsumeMessage } from "amqplib";
 import { startService } from "../../shared/service";
 import { emitHop, newId, type Hop } from "../../shared/trace";
+import { registerDlq } from "./dlq";
 import {
   HttpProblem, PricingUnavailable, UnknownProducts, detectAndDraft, enrich,
   type CanonicalOrder,
@@ -228,6 +229,8 @@ const rt = startService({
         if (!res.headersSent) return problem(res, 500, "internal_error", "unexpected error");
       }
     });
+
+    registerDlq(app, () => rt, hop);
 
     app.get("/orders/:correlationId", (req, res) => {
       const view = orders[req.params.correlationId];
