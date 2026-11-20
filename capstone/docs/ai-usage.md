@@ -14,7 +14,7 @@ Pasting long files into Terminal failed several times. The notifier stayed a two
 
 ## What I verified, and how
 
-I ran the public tests stage by stage (`node tests/stage.mjs 0` to `5`); stages 0 to 5 pass, 28 of 28 tests. I read the failure messages and the notifier's log when stage 4 failed. I did not run the hand checks for step 6 of the brief, so restart-proof stores, runtime reconnect and concurrency are unverified by me.
+I ran the public tests stage by stage (`node tests/stage.mjs 0` to `5`); stages 0 to 5 pass, 28 of 28 tests. I read the failure messages and the notifier's log when stage 4 failed. I also ran the hand checks of step 6: stopping and starting the broker (all services answered 503, then 200 again without a container restart), restarting the four services (the order stayed completed, the same key gave the same correlationId and the trace kept its hops), killing the orchestrator mid-saga (needs_attention, then operator compensation), and five concurrent orders (all completed). The failure analysis traces come from a script that ran each scenario against my stack.
 
 ## Dependencies beyond the allow-list
 

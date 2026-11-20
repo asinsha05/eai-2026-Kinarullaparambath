@@ -21,9 +21,8 @@ Stop and reset everything with `docker compose down -v`.
 ## Known limitations
 
 - The advanced component (Temporal mode) is not implemented.
-- I did not check the step 6 requirements by hand: restart-proof stores, runtime reconnect and concurrency are untested by me.
+- I checked by hand: broker reconnect, restart-proof stores, a stuck saga with operator compensation, DLQ replay and five concurrent orders. I did not build the advanced component.
 - The trace and the stores are JSON and JSONL files that are rewritten or appended to without any retention.
-- The failure-analysis.md document is still the template.
 
 ## Advanced component
 Not implemented.
