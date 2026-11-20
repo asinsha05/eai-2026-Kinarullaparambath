@@ -19,7 +19,7 @@ export interface CanonicalOrder {
 }
 export interface Line { productId: string; productName: string; quantity: number }
 export interface Draft { base: Omit<CanonicalOrder, "items" | "receivedAt">; lines: Line[] }
-export interface PricingOptions { baseUrl: string; apiKey: string; timeoutMs: number }
+export interface PricingOptions { baseUrl: string; apiKey: string; timeoutMs: number; headers?: Record<string, string> }
 
 export class HttpProblem extends Error {
   constructor(public status: number, public code: string, message: string) { super(message); }
@@ -212,7 +212,7 @@ type Looked =
 async function lookup(id: string, o: PricingOptions): Promise<Looked> {
   try {
     const res = await fetch(`${o.baseUrl.replace(/\/+$/, "")}/pricing/${encodeURIComponent(id)}`, {
-      headers: { "X-API-Key": o.apiKey },
+      headers: { "X-API-Key": o.apiKey, ...(o.headers ?? {}) },
       signal: AbortSignal.timeout(o.timeoutMs),
     });
     if (res.status === 404) return { status: "unknown_product" };

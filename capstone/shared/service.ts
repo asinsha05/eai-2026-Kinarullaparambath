@@ -13,6 +13,7 @@ export interface ServiceOptions {
   name: string;
   queues: Record<string, Handler>;
   prefetch?: number;
+  setup?: (ch: Channel) => Promise<void>;
   configure?: (app: Express, rt: Runtime) => void;
 }
 
@@ -46,6 +47,7 @@ export function startService(opts: ServiceOptions): Runtime {
           // A dead channel means a half-working service: drop the connection and reconnect.
           x.on("close", () => { c.close().catch(() => {}); });
         }
+        await opts.setup?.(channel);
         await channel.prefetch(opts.prefetch ?? 1);
         for (const [queue, handler] of Object.entries(opts.queues)) {
           await channel.consume(queue, (msg) => {
