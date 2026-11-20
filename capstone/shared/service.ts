@@ -1,10 +1,11 @@
 import express, { type Express } from "express";
-import amqp, { type Channel, type ChannelModel, type ConsumeMessage } from "amqplib";
+import amqp, { type Channel, type ConfirmChannel, type ChannelModel, type ConsumeMessage } from "amqplib";
 
 export type Handler = (msg: ConsumeMessage, ch: Channel) => Promise<void> | void;
 
 export interface Runtime {
   channel(): Channel | undefined;
+  confirmChannel(): ConfirmChannel | undefined;
   connected(): boolean;
 }
 
@@ -21,10 +22,15 @@ export function startService(opts: ServiceOptions): Runtime {
   const url = process.env.RABBITMQ_URL!;
   const port = Number(process.env.PORT ?? 3000);
   let ch: Channel | undefined;
+  let confirmCh: ConfirmChannel | undefined;
   const consumers: Record<string, number> = {};
   for (const q of Object.keys(opts.queues)) consumers[q] = 0;
 
-  const rt: Runtime = { channel: () => ch, connected: () => ch !== undefined };
+  const rt: Runtime = {
+    channel: () => ch,
+    confirmChannel: () => confirmCh,
+    connected: () => ch !== undefined,
+  };
 
   async function connectLoop(): Promise<void> {
     for (;;) {
@@ -33,7 +39,13 @@ export function startService(opts: ServiceOptions): Runtime {
         conn = await amqp.connect(url);
         const c = conn;
         const channel = await c.createChannel();
+        const confirm = await c.createConfirmChannel();
         c.on("error", (e: Error) => console.error(`[${opts.name}] broker error: ${e.message}`));
+        for (const x of [channel, confirm]) {
+          x.on("error", (e: Error) => console.error(`[${opts.name}] channel error: ${e.message}`));
+          // A dead channel means a half-working service: drop the connection and reconnect.
+          x.on("close", () => { c.close().catch(() => {}); });
+        }
         await channel.prefetch(opts.prefetch ?? 1);
         for (const [queue, handler] of Object.entries(opts.queues)) {
           await channel.consume(queue, (msg) => {
@@ -45,14 +57,15 @@ export function startService(opts: ServiceOptions): Runtime {
           });
           consumers[queue] = 1;
         }
-        // Registered last, so a half-finished setup never starts a second loop.
         c.on("close", () => {
           console.warn(`[${opts.name}] broker connection closed; reconnecting`);
           ch = undefined;
+          confirmCh = undefined;
           for (const q of Object.keys(consumers)) consumers[q] = 0;
           void connectLoop();
         });
         ch = channel;
+        confirmCh = confirm;
         console.log(`[${opts.name}] connected, consuming: ${Object.keys(opts.queues).join(", ") || "nothing"}`);
         return;
       } catch (err) {
